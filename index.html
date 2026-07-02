@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Serre PPP">
+<meta name="theme-color" content="#0f1a14">
+<link rel="manifest" href="manifest.json">
+<title>Serre Intelligente</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0f1a14;color:#e8f0eb;min-height:100vh;max-width:480px;margin:0 auto;padding-bottom:80px;}
+
+/* Header */
+.header{background:#1a2d20;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;border-bottom:1px solid #2d5a3d;}
+.header-left{display:flex;align-items:center;gap:10px;}
+.logo{width:34px;height:34px;background:#2d6a4f;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.app-title{font-size:15px;font-weight:600;}
+.app-sub{font-size:10px;color:#74a88a;}
+.status-dot{width:9px;height:9px;border-radius:50%;background:#444;transition:background .3s;}
+.status-dot.ok{background:#52b788;}
+.status-dot.err{background:#ef4444;}
+
+/* Pages */
+.page{display:none;padding:1rem;}
+.page.active{display:block;}
+
+/* Nav */
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#1a2d20;border-top:1px solid #2d5a3d;display:flex;z-index:100;}
+.nav-btn{flex:1;padding:10px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;border:none;background:none;color:#74a88a;font-size:10px;transition:color .2s;}
+.nav-btn.active{color:#52b788;}
+.nav-btn span.icon{font-size:20px;}
+
+/* Cards */
+.card{background:#1a2d20;border:1px solid #2d5a3d;border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+.card-title{font-size:12px;color:#74a88a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+
+/* Sensor grid */
+.sensor-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.sensor-item{background:#1a2d20;border:1px solid #2d5a3d;border-radius:12px;padding:14px;}
+.sensor-label{font-size:11px;color:#74a88a;margin-bottom:4px;}
+.sensor-val{font-size:26px;font-weight:700;color:#e8f0eb;font-family:monospace;line-height:1;}
+.sensor-unit{font-size:12px;color:#74a88a;margin-left:2px;}
+.sensor-status{font-size:10px;margin-top:4px;}
+.s-ok{color:#52b788;}
+.s-warn{color:#e9c46a;}
+.s-danger{color:#ef4444;}
+
+/* Mode badge */
+.mode-badge{display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;margin-bottom:12px;}
+.mode-auto{background:#1b4332;color:#52b788;}
+.mode-manuel{background:#7f1d1d;color:#fca5a5;}
+
+/* Actuator rows */
+.act-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #2d5a3d;}
+.act-row:last-child{border-bottom:none;}
+.act-left{display:flex;align-items:center;gap:10px;}
+.act-icon{font-size:22px;}
+.act-name{font-size:14px;color:#e8f0eb;font-weight:500;}
+.act-state{font-size:11px;color:#74a88a;margin-top:2px;}
+.led{width:12px;height:12px;border-radius:50%;background:#2d5a3d;flex-shrink:0;}
+.led.on{background:#52b788;box-shadow:0 0 8px #52b788;}
+
+/* Switch */
+.switch{position:relative;width:46px;height:26px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.track{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#2d5a3d;border-radius:26px;transition:.25s;}
+.track:before{position:absolute;content:"";height:20px;width:20px;left:3px;bottom:3px;background:#e8f0eb;border-radius:50%;transition:.25s;}
+.switch input:checked+.track{background:#52b788;}
+.switch input:checked+.track:before{transform:translateX(20px);}
+.switch.danger input:checked+.track{background:#ef4444;}
+
+/* Mode buttons */
+.mode-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.btn{width:100%;padding:12px;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
+.btn-auto{background:#1b4332;color:#52b788;border:1px solid #2d5a3d;}
+.btn-auto.selected{background:#52b788;color:#0f1a14;}
+.btn-manual{background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b;}
+.btn-manual.selected{background:#ef4444;color:#fff;}
+.btn-send{background:#1d4ed8;color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;width:100%;margin-top:8px;}
+.btn-send:active{background:#2563eb;}
+
+/* PV card */
+.pv-bar{height:14px;background:#2d5a3d;border-radius:7px;overflow:hidden;margin-top:6px;}
+.pv-fill{height:100%;background:linear-gradient(90deg,#52b788,#e9c46a);border-radius:7px;transition:width .5s;}
+
+/* Alert */
+.alert{background:#7f1d1d;border:1px solid #991b1b;border-radius:10px;padding:10px 14px;font-size:12px;color:#fca5a5;margin-bottom:10px;display:none;}
+
+/* Settings */
+.settings-group{margin-bottom:16px;}
+.settings-label{font-size:12px;color:#74a88a;margin-bottom:6px;}
+.settings-input{width:100%;background:#0f1a14;border:1px solid #2d5a3d;border-radius:8px;padding:10px 12px;color:#e8f0eb;font-size:13px;font-family:monospace;outline:none;}
+.settings-input:focus{border-color:#52b788;}
+.btn-connect{background:#2d6a4f;color:#e8f0eb;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;width:100%;margin-top:4px;}
+
+/* Clock */
+#clock{font-size:11px;color:#74a88a;font-family:monospace;}
+
+/* Last update */
+.last-update{font-size:10px;color:#2d5a3d;text-align:center;margin-top:8px;}
+
+/* CO2 chart placeholder */
+.mini-chart{height:80px;background:#0f1a14;border-radius:8px;margin-top:8px;display:flex;align-items:center;justify-content:center;color:#2d5a3d;font-size:12px;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="logo">🌿</div>
+    <div>
+      <div class="app-title">Serre Intelligente</div>
+      <div class="app-sub">UGB MIETEL · Dr. Gueye</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="status-dot" id="dot"></span>
+    <span id="clock">--:--</span>
+  </div>
+</div>
+
+<!-- PAGE 1 : TABLEAU DE BORD -->
+<div class="page active" id="page-dashboard">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <span id="mode-badge" class="mode-badge mode-auto">MODE AUTO</span>
+    <span id="last-up" style="font-size:10px;color:#2d5a3d;">--</span>
+  </div>
+
+  <div id="alert-box" class="alert">⚠ Alerte : vérifiez les paramètres de la serre !</div>
+
+  <div class="sensor-grid">
+    <div class="sensor-item">
+      <div class="sensor-label">🌡 Température</div>
+      <div class="sensor-val"><span id="v-temp">--</span><span class="sensor-unit">°C</span></div>
+      <div class="sensor-status" id="s-temp">--</div>
+    </div>
+    <div class="sensor-item">
+      <div class="sensor-label">💧 Humidité air</div>
+      <div class="sensor-val"><span id="v-hum">--</span><span class="sensor-unit">%</span></div>
+      <div class="sensor-status" id="s-hum">--</div>
+    </div>
+    <div class="sensor-item">
+      <div class="sensor-label">🌱 Sol</div>
+      <div class="sensor-val"><span id="v-soil">--</span><span class="sensor-unit">%</span></div>
+      <div class="sensor-status" id="s-soil">--</div>
+    </div>
+    <div class="sensor-item">
+      <div class="sensor-label">☀ Luminosité</div>
+      <div class="sensor-val"><span id="v-light">--</span><span class="sensor-unit">lx</span></div>
+      <div class="sensor-status" id="s-light">--</div>
+    </div>
+    <div class="sensor-item">
+      <div class="sensor-label">🌫 CO2</div>
+      <div class="sensor-val"><span id="v-co2">--</span><span class="sensor-unit">ppm</span></div>
+      <div class="sensor-status" id="s-co2">--</div>
+    </div>
+    <div class="sensor-item">
+      <div class="sensor-label">🔋 Batterie PV</div>
+      <div class="sensor-val"><span id="v-bat">--</span><span class="sensor-unit">%</span></div>
+      <div class="pv-bar"><div class="pv-fill" id="bat-fill" style="width:0%"></div></div>
+      <div class="sensor-status s-ok" id="s-solar">-- W</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Actionneurs</div>
+    <div class="act-row">
+      <div class="act-left"><span class="act-icon">🌀</span>
+        <div><div class="act-name">Ventilation</div><div class="act-state" id="fan-state">--</div></div>
+      </div>
+      <span class="led" id="fan-led"></span>
+    </div>
+    <div class="act-row">
+      <div class="act-left"><span class="act-icon">💦</span>
+        <div><div class="act-name">Pompe irrigation</div><div class="act-state" id="pump-state">--</div></div>
+      </div>
+      <span class="led" id="pump-led"></span>
+    </div>
+    <div class="act-row">
+      <div class="act-left"><span class="act-icon">🪟</span>
+        <div><div class="act-name">Volet ombrage</div><div class="act-state" id="shade-state">--</div></div>
+      </div>
+      <span class="led" id="shade-led"></span>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2 : COMMANDE -->
+<div class="page" id="page-commande">
+
+  <div class="card">
+    <div class="card-title">Mode de fonctionnement</div>
+    <div class="mode-btns">
+      <button class="btn btn-auto selected" id="btn-auto" onclick="selectMode('auto')">⚙ Automatique</button>
+      <button class="btn btn-manual" id="btn-manual" onclick="selectMode('manuel')">🕹 Manuel</button>
+    </div>
+    <div style="font-size:11px;color:#74a88a;margin-bottom:12px;" id="mode-desc">L'ESP32 régule automatiquement selon le PID.</div>
+  </div>
+
+  <div class="card" id="manual-card" style="opacity:.4;pointer-events:none;">
+    <div class="card-title">Commandes manuelles</div>
+    <div class="act-row">
+      <div class="act-left"><span class="act-icon">🌀</span>
+        <div><div class="act-name">Ventilation</div></div>
+      </div>
+      <label class="switch"><input type="checkbox" id="m-fan"><span class="track"></span></label>
+    </div>
+    <div class="act-row">
+      <div class="act-left"><span class="act-icon">💦</span>
+        <div><div class="act-name">Pompe irrigation</div></div>
+      </div>
+      <label class="switch"><input type="checkbox" id="m-pump"><span class="track"></span></label>
+    </div>
+    <div class="act-row">
+      <div class="act-left"><span class="act-icon">🪟</span>
+        <div><div class="act-name">Ombrage (fermé)</div></div>
+      </div>
+      <label class="switch switch danger"><input type="checkbox" id="m-shade"><span class="track"></span></label>
+    </div>
+  </div>
+
+  <button class="btn-send" onclick="sendCommand()">📡 Envoyer les commandes</button>
+  <div id="send-status" style="text-align:center;font-size:12px;color:#74a88a;margin-top:8px;"></div>
+</div>
+
+<!-- PAGE 3 : PARAMÈTRES -->
+<div class="page" id="page-settings">
+  <div class="card">
+    <div class="card-title">Connexion Firebase</div>
+    <div class="settings-group">
+      <div class="settings-label">URL de la base de données</div>
+      <input class="settings-input" id="s-url" value="serre-intelligente-46cd4-default-rtdb.firebaseio.com" placeholder="votre-projet-default-rtdb.firebaseio.com">
+    </div>
+    <div class="settings-group">
+      <div class="settings-label">Clé d'authentification</div>
+      <input class="settings-input" id="s-auth" value="CbXnwbrWDHKz0VE3Oh1D3tgszMCwFKfHvxrKZoug" placeholder="Votre clé Firebase">
+    </div>
+    <button class="btn-connect" onclick="saveAndConnect()">🔗 Connecter</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Informations du projet</div>
+    <div style="font-size:12px;color:#74a88a;line-height:1.8;">
+      <div>👩‍🎓 Ndeye Fatou Fofana</div>
+      <div>👩‍🎓 Fatimata Touré</div>
+      <div>👨‍🎓 Mamadou Ka</div>
+      <div style="margin-top:6px;">🏫 UGB · Master 1 MIETEL</div>
+      <div>👨‍🏫 Superviseur : Dr. I. Gueye</div>
+      <div>📅 PPP 2025-2026</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">À propos de l'application</div>
+    <div style="font-size:12px;color:#74a88a;line-height:1.8;">
+      <div>📡 Données Firebase en temps réel</div>
+      <div>🔄 Rafraîchissement : toutes les 3s</div>
+      <div>🌐 Compatible Android & iPhone</div>
+      <div>⚡ ESP32 · PID · Wokwi</div>
+    </div>
+  </div>
+</div>
+
+<!-- NAV BAR -->
+<nav class="nav">
+  <button class="nav-btn active" id="nav-dashboard" onclick="showPage('dashboard')">
+    <span class="icon">📊</span>Dashboard
+  </button>
+  <button class="nav-btn" id="nav-commande" onclick="showPage('commande')">
+    <span class="icon">🕹</span>Commande
+  </button>
+  <button class="nav-btn" id="nav-settings" onclick="showPage('settings')">
+    <span class="icon">⚙</span>Paramètres
+  </button>
+</nav>
+
+<script>
+var pollInterval = null;
+var currentMode = 'auto';
+
+function getBase(){ return 'https://' + document.getElementById('s-url').value.trim(); }
+function getAuth(){ return document.getElementById('s-auth').value.trim(); }
+
+function showPage(name){
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+}
+
+function setLed(id, on){
+  var e = document.getElementById(id);
+  if(e){ e.className = 'led' + (on ? ' on' : ''); }
+}
+
+function setStatus(ok){
+  document.getElementById('dot').className = 'status-dot ' + (ok ? 'ok' : 'err');
+}
+
+function sub(id, txt, cls){
+  var e = document.getElementById(id);
+  if(e){ e.textContent = txt; e.className = 'sensor-status' + (cls ? ' '+cls : ''); }
+}
+
+function checkAlerts(t, s, co2){
+  var alert = document.getElementById('alert-box');
+  var show = (t > 40) || (s < 20) || (co2 > 1500);
+  alert.style.display = show ? 'block' : 'none';
+}
+
+function updateUI(d){
+  if(!d) return;
+  var t = parseFloat(d.temperature);
+  var h = parseFloat(d.humidity);
+  var s = parseFloat(d.soil);
+  var l = parseFloat(d.light);
+  var co2 = parseFloat(d.co2 || 400);
+  var bat = parseFloat(d.battery || 85);
+  var sol = parseFloat(d.solar || 0);
+  var fan = d.fan === true || d.fan === 'true';
+  var pump = d.pump === true || d.pump === 'true';
+  var shade = d.shade === 0 || d.shade === '0';
+  var mode = d.mode || 'auto';
+
+  if(!isNaN(t)){
+    document.getElementById('v-temp').textContent = t.toFixed(1);
+    var diff = t - 25;
+    sub('s-temp', Math.abs(diff)<0.5 ? '✓ optimal' : (diff>0 ? '+'+diff.toFixed(1)+'° chaud' : diff.toFixed(1)+'° froid'), Math.abs(diff)<0.5 ? 's-ok' : 'warn');
+  }
+  if(!isNaN(h)){
+    document.getElementById('v-hum').textContent = Math.round(h);
+    sub('s-hum', h<40 ? 'bas' : h>70 ? 'élevé' : 'stable', h<40||h>70 ? 's-warn' : 's-ok');
+  }
+  if(!isNaN(s)){
+    document.getElementById('v-soil').textContent = Math.round(s);
+    sub('s-soil', s<30 ? '⚠ irrigation!' : 'stable', s<30 ? 's-danger' : 's-ok');
+  }
+  if(!isNaN(l)){
+    document.getElementById('v-light').textContent = Math.round(l/1000*10)/10 + 'k';
+    sub('s-light', l>18000 ? 'fort' : l>3000 ? 'jour' : 'nuit', 's-ok');
+  }
+  if(!isNaN(co2)){
+    document.getElementById('v-co2').textContent = Math.round(co2);
+    sub('s-co2', co2>1000 ? '⚠ élevé' : 'normal', co2>1000 ? 's-danger' : 's-ok');
+  }
+  if(!isNaN(bat)){
+    document.getElementById('v-bat').textContent = bat.toFixed(0);
+    document.getElementById('bat-fill').style.width = bat + '%';
+  }
+  if(!isNaN(sol)){
+    document.getElementById('s-solar').textContent = sol.toFixed(1) + ' W';
+  }
+
+  setLed('fan-led', fan);
+  setLed('pump-led', pump);
+  setLed('shade-led', shade);
+  document.getElementById('fan-state').textContent = fan ? 'en marche' : 'arrêt';
+  document.getElementById('pump-state').textContent = pump ? 'en marche' : 'arrêt';
+  document.getElementById('shade-state').textContent = shade ? 'fermé' : 'ouvert';
+
+  currentMode = mode;
+  var badge = document.getElementById('mode-badge');
+  badge.textContent = mode === 'manuel' ? 'MODE MANUEL' : 'MODE AUTO';
+  badge.className = 'mode-badge ' + (mode === 'manuel' ? 'mode-manuel' : 'mode-auto');
+
+  document.getElementById('last-up').textContent = 'Mis à jour ' + new Date().toLocaleTimeString('fr-FR');
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+  setStatus(true);
+
+  if(!isNaN(t) && !isNaN(s) && !isNaN(co2)) checkAlerts(t, s, co2);
+}
+
+function fetchData(){
+  fetch(getBase() + '/serre/etat.json?auth=' + getAuth())
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if(d && d.temperature != null){ updateUI(d); } else { setStatus(false); } })
+    .catch(function(){ setStatus(false); });
+}
+
+function selectMode(mode){
+  currentMode = mode;
+  document.getElementById('btn-auto').className = 'btn btn-auto' + (mode==='auto'?' selected':'');
+  document.getElementById('btn-manual').className = 'btn btn-manual' + (mode==='manuel'?' selected':'');
+  document.getElementById('manual-card').style.opacity = mode==='manuel' ? '1' : '.4';
+  document.getElementById('manual-card').style.pointerEvents = mode==='manuel' ? 'auto' : 'none';
+  document.getElementById('mode-desc').textContent = mode==='manuel'
+    ? 'Vous contrôlez manuellement chaque actionneur.'
+    : "L'ESP32 régule automatiquement selon le PID.";
+}
+
+function sendCommand(){
+  var body = JSON.stringify({
+    mode: currentMode,
+    fan: document.getElementById('m-fan').checked,
+    pump: document.getElementById('m-pump').checked,
+    shade: document.getElementById('m-shade').checked ? 0 : 90
+  });
+  var st = document.getElementById('send-status');
+  st.textContent = 'Envoi en cours...';
+  st.style.color = '#e9c46a';
+  fetch(getBase() + '/serre/commandes.json?auth=' + getAuth(), {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: body
+  })
+  .then(function(){ st.textContent = '✅ Commandes envoyées avec succès !'; st.style.color = '#52b788'; })
+  .catch(function(){ st.textContent = '❌ Erreur d\'envoi'; st.style.color = '#ef4444'; });
+}
+
+function saveAndConnect(){
+  if(pollInterval) clearInterval(pollInterval);
+  fetchData();
+  pollInterval = setInterval(fetchData, 3000);
+  showPage('dashboard');
+}
+
+window.onload = function(){
+  setInterval(function(){
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  }, 1000);
+  fetchData();
+  pollInterval = setInterval(fetchData, 3000);
+};
+</script>
+</body>
+</html>
